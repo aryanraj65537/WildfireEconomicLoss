@@ -1,4 +1,7 @@
 import random
+import ee
+ee.Authenticate()
+ee.Initialize()
 wildfire_lat = 39.819
 wildfire_lon = -121.419
 node_dist = .0009
