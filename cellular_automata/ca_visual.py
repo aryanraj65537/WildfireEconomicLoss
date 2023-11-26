@@ -14,19 +14,33 @@ cur_task = 0
 grid_size = 20  # Define the size of the grid
 grid = [[0 for _ in range(2 * grid_size + 1)] for _ in range(2 * grid_size + 1)]
 
+# Function to calculate the probability of spread
 def calc_prob(node1, node2):
-    return random.uniform(0.1, 0.3)
+    if node2[0] > node1[0] and node2[0] < 5:
+        return 1
+    return 0
 
+# Function to calculate the time to spread
 def calc_time(node1, node2):
-    return random.randint(1, 3)
+    return 1
 
-plt.ion()  # Turn on interactive mode for matplotlib
+# Event handler for keyboard input
+stop_requested = False
+def on_key(event):
+    global stop_requested
+    if event.key == 'q':
+        stop_requested = True
 
-while cur_task <= last_task:
+# Turn on interactive mode for matplotlib
+plt.ion()
+fig, ax = plt.subplots()
+fig.canvas.mpl_connect('key_press_event', on_key)
+
+while cur_task <= last_task and not stop_requested:
     if cur_task in scheduler:
         for node in scheduler[cur_task]:
-            x, y = node[0] + grid_size, node[1] + grid_size  # Shift the coordinates to fit in the grid
-            grid[x][y] = 1  # Mark the cell as burnt
+            x, y = node[0] + grid_size, node[1] + grid_size
+            grid[x][y] = 1
 
             for lon_dist in range(-1, 2):
                 for lat_dist in range(-1, 2):
@@ -45,13 +59,12 @@ while cur_task <= last_task:
                         scheduler[next_time] = {next_node}
             burned.add(node)
 
-            # Create a grid plot and update it
-            plt.imshow(grid, cmap='hot', interpolation='nearest', origin='lower')
-            plt.pause(0.001)  # Pause for a short time to update the plot
+            ax.imshow(grid, cmap='hot', interpolation='nearest', origin='lower')
+            plt.pause(0.001)
 
     cur_task += 1
-print(scheduler)
-print(burned)
-# Keep the plot window open until the user closes it
+
+# Disconnect the event handler and close the plot
+fig.canvas.mpl_disconnect(fig.canvas.mpl_connect('key_press_event', on_key))
 plt.ioff()
 plt.show()

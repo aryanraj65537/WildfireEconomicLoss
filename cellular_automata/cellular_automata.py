@@ -1,19 +1,33 @@
 import random
 import ee
+
+# Initialize Earth Engine
 ee.Authenticate()
 ee.Initialize()
+
+# Define the wildfire location and node distance
 wildfire_lat = 39.819
 wildfire_lon = -121.419
 node_dist = .0009
+
+# Initialize the scheduler and burned sets
 scheduler = {
-    0 : {(wildfire_lon, wildfire_lat)}
+    0: {(wildfire_lon, wildfire_lat)}
 }
 burned = set()
+
+# Task tracking
 last_task = 0
 cur_task = 0
+
+# Define the datasets
 image_elevation = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 image_temperature = ee.ImageCollection("MODIS/061/MOD11A1").select('LST_Day_1km')
 image_biomass = ee.ImageCollection("WCMC/biomass_carbon_density/v1_0").select('carbon_tonnes_per_ha')
+image_wind = ee.ImageCollection("YOUR_WIND_DATASET").select('YOUR_WIND_BANDS')  # Placeholder for wind dataset
+image_moisture = ee.ImageCollection("YOUR_MOISTURE_DATASET").select('YOUR_MOISTURE_BANDS')  # Placeholder for moisture dataset
+
+# Function to retrieve dataset values
 def dataset_value(dataset, lon, lat):
     point = ee.Geometry.Point([lon, lat])
     if isinstance(dataset, ee.imagecollection.ImageCollection):
@@ -24,44 +38,63 @@ def dataset_value(dataset, lon, lat):
         scale=30
     ).getInfo()
     return value
+
 def calc_prob(node1, node2):
-    # Extracting elevation, temperature, and biomass for both nodes
+    # Retrieve dataset values
     elevation1 = dataset_value(image_elevation, *node1)['elevation']
     elevation2 = dataset_value(image_elevation, *node2)['elevation']
     temp1 = dataset_value(image_temperature, *node1)['LST_Day_1km']
     temp2 = dataset_value(image_temperature, *node2)['LST_Day_1km']
     biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
+    wind_speed1 = dataset_value(image_wind, *node1)['YOUR_WIND_SPEED_BAND']  # Placeholder
+    wind_speed2 = dataset_value(image_wind, *node2)['YOUR_WIND_SPEED_BAND']  # Placeholder
+    moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
+    moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
 
-    # Probability factors
-    elevation_factor = 1.0 + (elevation2 - elevation1) / 100  # Higher elevation difference increases probability
-    temperature_factor = 1.0 + (temp2 - temp1) / 300  # Higher temperature increases probability
-    biomass_factor = 1.0 + (biomass2 - biomass1) / 10  # Higher biomass increases probability
+    # Calculate factors influenced by elevation, temperature, biomass, wind, and moisture
+    elevation_factor = abs(elevation1 - elevation2)
+    temperature_factor = abs(temp1 - temp2)
+    biomass_factor = abs(biomass1 - biomass2)
+    wind_factor = abs(wind_speed1 - wind_speed2)
+    moisture_factor = abs(moisture1 - moisture2)
 
-    # Combining factors (simplified)
-    probability = 0.1 * elevation_factor * temperature_factor * biomass_factor
-    probability = min(max(probability, 0.1), 0.3)  # Clamping the probability between 0.1 and 0.3
+    # Simplified probability calculation
+    pn = 0.5  # Nominal fire spread probability (assumed)
+    alpha_wh = 1 + elevation_factor * 0.1 + wind_factor * 0.05  # Modified for elevation and wind
+    em = 1 + temperature_factor * 0.01 - biomass_factor * 0.01 + moisture_factor * 0.01  # Modified for temperature, biomass, and moisture
+    
+    pij = (1 - (1 - pn) ** alpha_wh) * em
+    return pij
 
-    return probability
 def calc_time(node1, node2):
-    # Using similar factors as in calc_prob
+    # Retrieve dataset values
     elevation1 = dataset_value(image_elevation, *node1)['elevation']
     elevation2 = dataset_value(image_elevation, *node2)['elevation']
     temp1 = dataset_value(image_temperature, *node1)['LST_Day_1km']
     temp2 = dataset_value(image_temperature, *node2)['LST_Day_1km']
     biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
+    moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
+    moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
 
-    # Time factors
-    elevation_time_factor = 1.0 + (elevation2 - elevation1) / 100  # Higher elevation difference increases spread time
-    temperature_time_factor = 1.0 - (temp2 - temp1) / 300  # Higher temperature decreases spread time
-    biomass_time_factor = 1.0 + (biomass2 - biomass1) / 10  # Higher biomass increases spread time
+    # Calculate factors influenced by elevation, temperature, biomass, and moisture
+    elevation_factor = abs(elevation1 - elevation2)
+    temperature_factor = abs(temp1 - temp2)
+    biomass_factor = abs(biomass1 - biomass2)
+    moisture_factor = abs(moisture1 - moisture2)
 
-    # Combining factors (simplified)
-    time = 1 * elevation_time_factor * temperature_time_factor * biomass_time_factor
-    time = max(time, 1)  # Ensuring time is at least 1
+    # Simplified time calculation
+    d = 1  # Distance between cells (assumed)
+    vprop_base = 1  # Base Rate of Spread (assumed)
+    # Adjust Rate of Spread based on factors
+    vprop = vprop_base + elevation_factor * 0.05 - temperature_factor * 0.01 + biomass_factor * 0.02
+    fm = 1 + moisture_factor * 0.01  # Modified for moisture
+    
+    delta_t = d / (vprop * fm)
+    return delta_t
 
-    return time
+# Main simulation loop
 while cur_task <= last_task:
     if cur_task in scheduler:
         for node in scheduler[cur_task]:
@@ -69,12 +102,12 @@ while cur_task <= last_task:
                 for lat_dist in range(-1, 2):
                     if lon_dist == 0 and lat_dist == 0:
                         continue
-                    next_node = (node[0]-lon_dist*node_dist, node[1]-lat_dist*node_dist)
+                    next_node = (node[0] - lon_dist * node_dist, node[1] - lat_dist * node_dist)
                     if next_node in burned:
                         continue
                     if random.random() > calc_prob(node, next_node):
                         continue
-                    next_time = calc_time(node, next_node)+cur_task
+                    next_time = calc_time(node, next_node) + cur_task
                     last_task = max(last_task, next_time)
                     if next_time in scheduler:
                         scheduler[next_time].add(next_node)
@@ -82,5 +115,7 @@ while cur_task <= last_task:
                         scheduler[next_time] = {next_node}
             burned.add(node)
     cur_task += 1
+
+# Output the results
 print(scheduler)
 print(burned)
