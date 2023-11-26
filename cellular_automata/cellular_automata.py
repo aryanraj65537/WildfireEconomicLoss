@@ -24,8 +24,8 @@ cur_task = 0
 image_elevation = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 image_temperature = ee.ImageCollection("MODIS/061/MOD11A1").select('LST_Day_1km')
 image_biomass = ee.ImageCollection("WCMC/biomass_carbon_density/v1_0").select('carbon_tonnes_per_ha')
-image_wind = ee.ImageCollection("YOUR_WIND_DATASET").select('YOUR_WIND_BANDS')  # Placeholder for wind dataset
-image_moisture = ee.ImageCollection("YOUR_MOISTURE_DATASET").select('YOUR_MOISTURE_BANDS')  # Placeholder for moisture dataset
+#image_wind = ee.ImageCollection("YOUR_WIND_DATASET").select('YOUR_WIND_BANDS')  # Placeholder for wind dataset
+#image_moisture = ee.ImageCollection("YOUR_MOISTURE_DATASET").select('YOUR_MOISTURE_BANDS')  # Placeholder for moisture dataset
 
 # Function to retrieve dataset values
 def dataset_value(dataset, lon, lat):
@@ -47,22 +47,22 @@ def calc_prob(node1, node2):
     temp2 = dataset_value(image_temperature, *node2)['LST_Day_1km']
     biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
-    wind_speed1 = dataset_value(image_wind, *node1)['YOUR_WIND_SPEED_BAND']  # Placeholder
-    wind_speed2 = dataset_value(image_wind, *node2)['YOUR_WIND_SPEED_BAND']  # Placeholder
-    moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
-    moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
+    #wind_speed1 = dataset_value(image_wind, *node1)['YOUR_WIND_SPEED_BAND']  # Placeholder
+    #wind_speed2 = dataset_value(image_wind, *node2)['YOUR_WIND_SPEED_BAND']  # Placeholder
+    #moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
+    #moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
 
     # Calculate factors influenced by elevation, temperature, biomass, wind, and moisture
     elevation_factor = abs(elevation1 - elevation2)
     temperature_factor = abs(temp1 - temp2)
     biomass_factor = abs(biomass1 - biomass2)
-    wind_factor = abs(wind_speed1 - wind_speed2)
-    moisture_factor = abs(moisture1 - moisture2)
+    #wind_factor = abs(wind_speed1 - wind_speed2)
+    #moisture_factor = abs(moisture1 - moisture2)
 
     # Simplified probability calculation
     pn = 0.5  # Nominal fire spread probability (assumed)
-    alpha_wh = 1 + elevation_factor * 0.1 + wind_factor * 0.05  # Modified for elevation and wind
-    em = 1 + temperature_factor * 0.01 - biomass_factor * 0.01 + moisture_factor * 0.01  # Modified for temperature, biomass, and moisture
+    alpha_wh = 1 + elevation_factor * 0.1  # Modified for elevation and wind
+    em = 1 + temperature_factor * 0.01 - biomass_factor * 0.01 # Modified for temperature, biomass, and moisture
     
     pij = (1 - (1 - pn) ** alpha_wh) * em
     return pij
@@ -75,21 +75,21 @@ def calc_time(node1, node2):
     temp2 = dataset_value(image_temperature, *node2)['LST_Day_1km']
     biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
-    moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
-    moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
+    #moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
+    #moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
 
     # Calculate factors influenced by elevation, temperature, biomass, and moisture
     elevation_factor = abs(elevation1 - elevation2)
     temperature_factor = abs(temp1 - temp2)
     biomass_factor = abs(biomass1 - biomass2)
-    moisture_factor = abs(moisture1 - moisture2)
+    #moisture_factor = abs(moisture1 - moisture2)
 
     # Simplified time calculation
     d = 1  # Distance between cells (assumed)
     vprop_base = 1  # Base Rate of Spread (assumed)
     # Adjust Rate of Spread based on factors
     vprop = vprop_base + elevation_factor * 0.05 - temperature_factor * 0.01 + biomass_factor * 0.02
-    fm = 1 + moisture_factor * 0.01  # Modified for moisture
+    fm = 1# + moisture_factor * 0.01  # Modified for moisture
     
     delta_t = d / (vprop * fm)
     return delta_t
