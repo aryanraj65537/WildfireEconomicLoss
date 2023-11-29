@@ -24,8 +24,9 @@ cur_task = 0
 image_elevation = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 image_temperature = ee.ImageCollection("MODIS/061/MOD11A1").select('LST_Day_1km')
 image_biomass = ee.ImageCollection("WCMC/biomass_carbon_density/v1_0").select('carbon_tonnes_per_ha')
-#image_wind = ee.ImageCollection("YOUR_WIND_DATASET").select('YOUR_WIND_BANDS')  # Placeholder for wind dataset
-#image_moisture = ee.ImageCollection("YOUR_MOISTURE_DATASET").select('YOUR_MOISTURE_BANDS')  # Placeholder for moisture dataset
+image_winddir = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET').select('th')  #homogenous
+image_windvel = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET').select('vs') #homogenous
+image_moisture = ee.ImageCollection("YOUR_MOISTURE_DATASET").select('YOUR_MOISTURE_BANDS')  # Placeholder for moisture dataset
 
 # Function to retrieve dataset values
 def dataset_value(dataset, lon, lat):
@@ -40,28 +41,17 @@ def dataset_value(dataset, lon, lat):
     return value
 
 def calc_prob(node1, node2):
-    # Retrieve dataset values
-    elevation1 = dataset_value(image_elevation, *node1)['elevation']
-    elevation2 = dataset_value(image_elevation, *node2)['elevation']
-    temp1 = dataset_value(image_temperature, *node1)['LST_Day_1km']
-    temp2 = dataset_value(image_temperature, *node2)['LST_Day_1km']
-    biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
-    #wind_speed1 = dataset_value(image_wind, *node1)['YOUR_WIND_SPEED_BAND']  # Placeholder
-    #wind_speed2 = dataset_value(image_wind, *node2)['YOUR_WIND_SPEED_BAND']  # Placeholder
-    #moisture1 = dataset_value(image_moisture, *node1)['YOUR_MOISTURE_BAND']  # Placeholder
-    #moisture2 = dataset_value(image_moisture, *node2)['YOUR_MOISTURE_BAND']  # Placeholder
-
-    # Calculate factors influenced by elevation, temperature, biomass, wind, and moisture
-    elevation_factor = abs(elevation1 - elevation2)
-    temperature_factor = abs(temp1 - temp2)
-    biomass_factor = abs(biomass1 - biomass2)
-    #wind_factor = abs(wind_speed1 - wind_speed2)
-    #moisture_factor = abs(moisture1 - moisture2)
-
+    elevdiff = dataset_value(image_elevation, *node1)['elevation']-dataset_value(image_elevation, *node2)['elevation']
     # Simplified probability calculation
-    pn = 0.5  # Nominal fire spread probability (assumed)
-    alpha_wh = 1 + elevation_factor * 0.1  # Modified for elevation and wind
+    pn = biomass2/891  # Nominal fire spread probability (assumed)
+    curnode_dist = node_dist
+    if node2[0] != node1[0] and node2[1] != node1[1]:
+        curnode_dist *= 2**.5
+    slope = elevdiff / (curnode_dist)
+    alpha_h = 2**slope
+    alpha_w = 
+    alpha_wh = alpha_w*alpha_h  # Modified for elevation and wind
     em = 1 + temperature_factor * 0.01 - biomass_factor * 0.01 # Modified for temperature, biomass, and moisture
     
     pij = (1 - (1 - pn) ** alpha_wh) * em
