@@ -64,7 +64,7 @@ def calc_time(node1, node2):
         curnode_dist *= 2**.5 # Distance between cells (assumed)
     vprop_base = 1  # Base Rate of Spread (assumed)
     # Adjust Rate of Spread based on factors
-    vprop = vprop_base + elevation_factor * 0.05 - temperature_factor * 0.01 + biomass_factor * 0.02
+    vprop = vprop_base*
     fuel_moisture = 
     fm = 2.718**(-.014*fuel_moisture) # + moisture_factor * 0.01  # Modified for moisture
     
