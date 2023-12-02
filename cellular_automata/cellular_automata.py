@@ -40,9 +40,13 @@ def dataset_value(dataset, lon, lat):
     ).getInfo()
     return value
 
+homowinddir = dataset_value(image_winddir, wildfire_lon, wildfire_lat)
+homowindvel = dataset_value(image_windvel, wildfire_lon, wildfire_lat)
+
 def calc_prob(node1, node2):
     biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
     elevdiff = dataset_value(image_elevation, *node1)['elevation']-dataset_value(image_elevation, *node2)['elevation']
+    moisture2 = dataset_value(image_moisture, *node2)['ssm']
     # Simplified probability calculation
     pn = biomass2/891  # Nominal fire spread probability (assumed)
     curnode_dist = node_dist
@@ -50,21 +54,23 @@ def calc_prob(node1, node2):
         curnode_dist *= 2**.5
     slope = elevdiff / (curnode_dist)
     alpha_h = 2**slope
-    alpha_w = 
+    alpha_w = homowindvel/30
     alpha_wh = alpha_w*alpha_h  # Modified for elevation and wind
-    fuel_moisture = 
+    fuel_moisture = moisture2/25.39
     em = -4*(fuel_moisture-.5)**3+.5 # Modified for temperature, biomass, and moisture
     
     pij = (1 - (1 - pn) ** alpha_wh) * em
     return pij
 
 def calc_time(node1, node2):
+    biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
+    elevdiff = dataset_value(image_elevation, *node1)['elevation']-dataset_value(image_elevation, *node2)['elevation']
+    moisture1 = dataset_value(image_moisture, *node1)['ssm']
     curnode_dist = node_dist
     if node2[0] != node1[0] and node2[1] != node1[1]:
         curnode_dist *= 2**.5 # Distance between cells (assumed)
-    fuel_moisture = 
-    vprop = fuel_moisture
-    fm = 2.718**(-.014*fuel_moisture) # + moisture_factor * 0.01  # Modified for moisture
+    vprop = (biomass1/445.5*140+60)*(2.718**(.1783*homowindvel))*(2.718**(3.533*(elevdiff/curnode_dist)**1.2))
+    fm = 2.718**(-.014*moisture1) # + moisture_factor * 0.01  # Modified for moisture
     
     delta_t = curnode_dist / (vprop * fm)
     return delta_t
