@@ -1,79 +1,22 @@
 import random
-import ee
-
-# Initialize Earth Engine
-ee.Authenticate()
-ee.Initialize()
-
-# Define the wildfire location and node distance
-wildfire_lat = 39.819
-wildfire_lon = -121.419
-node_dist = .0009
 
 # Initialize the scheduler and burned sets
 scheduler = {
-    0: {(wildfire_lon, wildfire_lat)}
+    0: {(0, 0)}
 }
-burned = set()
+
+# Controlled burn
+burned = set([(i, 2) for i in range(-30, 30)])
 
 # Task tracking
 last_task = 0
 cur_task = 0
 
-# Define the datasets
-image_elevation = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
-image_temperature = ee.ImageCollection("MODIS/061/MOD11A1").select('LST_Day_1km')
-image_biomass = ee.ImageCollection("WCMC/biomass_carbon_density/v1_0").select('carbon_tonnes_per_ha')
-image_winddir = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET').select('th')  #homogenous
-image_windvel = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET').select('vs') #homogenous
-image_moisture = ee.ImageCollection("NASA_USDA/HSL/SMAP10KM_soil_moisture").select('ssm')  # Placeholder for moisture dataset
-
-# Function to retrieve dataset values
-def dataset_value(dataset, lon, lat):
-    point = ee.Geometry.Point([lon, lat])
-    if isinstance(dataset, ee.imagecollection.ImageCollection):
-        dataset = dataset.mean()
-    value = dataset.reduceRegion(
-        reducer=ee.Reducer.first(), 
-        geometry=point, 
-        scale=30
-    ).getInfo()
-    return value
-
-homowinddir = dataset_value(image_winddir, wildfire_lon, wildfire_lat)
-homowindvel = dataset_value(image_windvel, wildfire_lon, wildfire_lat)
-
 def calc_prob(node1, node2):
-    biomass2 = dataset_value(image_biomass, *node2)['carbon_tonnes_per_ha']
-    elevdiff = dataset_value(image_elevation, *node1)['elevation']-dataset_value(image_elevation, *node2)['elevation']
-    moisture2 = dataset_value(image_moisture, *node2)['ssm']
-    # Simplified probability calculation
-    pn = biomass2/891  # Nominal fire spread probability (assumed)
-    curnode_dist = node_dist
-    if node2[0] != node1[0] and node2[1] != node1[1]:
-        curnode_dist *= 2**.5
-    slope = elevdiff / (curnode_dist)
-    alpha_h = 2**slope
-    alpha_w = homowindvel/30
-    alpha_wh = alpha_w*alpha_h  # Modified for elevation and wind
-    fuel_moisture = moisture2/25.39
-    em = -4*(fuel_moisture-.5)**3+.5 # Modified for temperature, biomass, and moisture
-    
-    pij = (1 - (1 - pn) ** alpha_wh) * em
-    return pij
+    return random.uniform(.25, .75)
 
 def calc_time(node1, node2):
-    biomass1 = dataset_value(image_biomass, *node1)['carbon_tonnes_per_ha']
-    elevdiff = dataset_value(image_elevation, *node1)['elevation']-dataset_value(image_elevation, *node2)['elevation']
-    moisture1 = dataset_value(image_moisture, *node1)['ssm']
-    curnode_dist = node_dist
-    if node2[0] != node1[0] and node2[1] != node1[1]:
-        curnode_dist *= 2**.5 # Distance between cells (assumed)
-    vprop = (biomass1/445.5*140+60)*(2.718**(.1783*homowindvel))*(2.718**(3.533*(elevdiff/curnode_dist)**1.2))
-    fm = 2.718**(-.014*moisture1) # + moisture_factor * 0.01  # Modified for moisture
-    
-    delta_t = curnode_dist / (vprop * fm)
-    return delta_t
+    return random.randint(1, 3)
 
 # Main simulation loop
 while cur_task <= last_task:
@@ -83,7 +26,7 @@ while cur_task <= last_task:
                 for lat_dist in range(-1, 2):
                     if lon_dist == 0 and lat_dist == 0:
                         continue
-                    next_node = (node[0] - lon_dist * node_dist, node[1] - lat_dist * node_dist)
+                    next_node = (node[0] - lon_dist, node[1] - lat_dist)
                     if next_node in burned:
                         continue
                     if random.random() > calc_prob(node, next_node):
