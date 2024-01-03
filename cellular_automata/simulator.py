@@ -7,11 +7,11 @@ import numpy as np
 x = np.arange(20).reshape((4,5))
 np.savetxt('map.txt', x)
 
-SC_WIDTH, SC_HEIGHT = 800,800
+SC_WIDTH, SC_HEIGHT = 4000,4000
 INITIAL_TREE_DENSITY = 1
-MAP_WIDTH = 10
-MAP_HEIGHT = 10
-TILE_SIZE = 25
+MAP_WIDTH = 1000
+MAP_HEIGHT = 1000
+TILE_SIZE = 16
 
 trees = []
 fires = []
@@ -22,24 +22,28 @@ pygame.init()
 
 screen = pygame.display.set_mode((SC_WIDTH, SC_HEIGHT))
 
-TREE_IMG = pygame.image.load(os.path.join("Graphics", "Tree_Small.png")).convert_alpha()
-FIRE_IMG = pygame.image.load(os.path.join("Graphics", "Fire_Small.png")).convert_alpha()
+TREELOW_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "low-biomass.png")).convert_alpha()
+TREEMED_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "med-biomass.png")).convert_alpha()
+TREEHIGH_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "high-biomass.png")).convert_alpha()
+FIRE_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "Fire-Small.png")).convert_alpha()
 
 def createNewForest():
-    map = [["T" if random.random()<= INITIAL_TREE_DENSITY else " "
+    map = [[random.choice(["L", "M", "H", "F"]) if random.random()<= INITIAL_TREE_DENSITY else " "
             for x in range(MAP_WIDTH)]
             for y in range(MAP_HEIGHT)]
-    map[0][0] = "T"
     return map
 
 def displayForest(forest):
     for x in range(MAP_WIDTH):
         for y in range(MAP_HEIGHT):
-            if forest[y][x] == "T":
-                screen.blit(TREE_IMG, (x*TILE_SIZE, y*TILE_SIZE))
+            if forest[y][x] == "L":
+                screen.blit(TREELOW_IMG, (x*TILE_SIZE, y*TILE_SIZE))
             elif forest[y][x] == "F":
                 screen.blit(FIRE_IMG, (x*TILE_SIZE, y*TILE_SIZE))
-
+            elif forest[y][x] == "M":
+                screen.blit(TREEMED_IMG, (x*TILE_SIZE, y*TILE_SIZE))
+            elif forest[y][x] == "H":
+                screen.blit(TREEHIGH_IMG, (x*TILE_SIZE, y*TILE_SIZE))
 
 
 def main(SIM_LENGTH, input_for, cburns):
@@ -62,9 +66,9 @@ def main(SIM_LENGTH, input_for, cburns):
         fires.append(fire_land_percentage)
 
         next_forest = [["Empty" for x in range(MAP_WIDTH)] for y in range(MAP_HEIGHT)]
-        #screen.fill((137,234,123))
-        #displayForest(forest)
-        #pygame.display.update()
+        screen.fill((137,234,123))
+        displayForest(forest)
+        pygame.display.update()
 
         #Build next forest
         forest[0][0] = "F"
