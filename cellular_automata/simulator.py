@@ -3,6 +3,7 @@ import pygame
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+import networkx as nx
 
 x = np.arange(20).reshape((4,5))
 np.savetxt('map.txt', x)
@@ -52,6 +53,8 @@ def main(SIM_LENGTH, input_for, cburns):
     break_out = False
     forest = input_for
 
+    treeOfBurned = nx.Graph()
+
     for step in range(SIM_LENGTH):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -85,6 +88,7 @@ def main(SIM_LENGTH, input_for, cburns):
                             if (x+ix)>=0 and (y+iy) >= 0:
                                 if (x+ix)<=(MAP_WIDTH-1) and (y+iy) <= (MAP_HEIGHT -1):
                                     if forest[y+iy][x+ix] == "T" and (random.random()<= 1):
+                                        treeOfBurned.add_edge((y, x), (y+iy, x+ix))
                                         listOfBurned.append((y+iy, x+ix))
                                         next_forest[y+iy][x+ix] = "F"
                     #delete tree after fire
@@ -107,7 +111,7 @@ def main(SIM_LENGTH, input_for, cburns):
     
     time.sleep(5)
     pygame.quit()
-    return listOfBurned
+    return [listOfBurned, treeOfBurned]
 
 
 def get_cost(lob, input_forest):
