@@ -141,7 +141,7 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
                         for iy in range(-1,2):
                             if (x+ix)>=0 and (y+iy) >= 0:
                                 if (x+ix)<=(MAP_WIDTH-1) and (y+iy) <= (MAP_HEIGHT -1):
-                                    tOF = (random.random() < .33)
+                                    tOF = (random.random() < 0.33)
                                     if (forest[y+iy][x+ix] == "L" or forest[y+iy][x+ix] == "M" or forest[y+iy][x+ix] == "H") and (tOF):
                                         if (y+iy, x+ix) not in setOfBurned:
                                             treeOfBurned.add_edge((y, x), (y+iy, x+ix))

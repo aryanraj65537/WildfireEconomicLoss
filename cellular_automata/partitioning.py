@@ -34,7 +34,9 @@ except ImportError:
     matplotlib.use("agg")
     import matplotlib.pyplot as plt
 
-
+rishicodefunky = createNewForest()
+rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
+rishimonkey = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])
 
 def build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     """Builds graph from user specified parameters or use defaults.
@@ -96,8 +98,38 @@ def visualize_input_graph(G):
     Returns:
         None. Image saved as input_graph.png.
     """
+    def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
+        if not nx.is_tree(G):
+            raise TypeError('cannot use hierarchy_pos on a graph that is not a tree')
 
-    pos = nx.random_layout(G)
+        if root is None:
+            if isinstance(G, nx.DiGraph):
+                root = next(iter(nx.topological_sort(G)))  #allows back compatibility with nx version 1.11
+            else:
+                root = random.choice(list(G.nodes))
+
+        def _hierarchy_pos(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
+
+            if pos is None:
+                pos = {root:(xcenter,vert_loc)}
+            else:
+                pos[root] = (xcenter, vert_loc)
+            children = list(G.neighbors(root))
+            if not isinstance(G, nx.DiGraph) and parent is not None:
+                children.remove(parent)  
+            if len(children)!=0:
+                dx = width/len(children) 
+                nextx = xcenter - width/2 - dx/2
+                for child in children:
+                    nextx += dx
+                    pos = _hierarchy_pos(G,child, width = dx, vert_gap = vert_gap, 
+                                        vert_loc = vert_loc-vert_gap, xcenter=nextx,
+                                        pos=pos, parent = root)
+            return pos
+
+                
+        return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
+    pos = hierarchy_pos(G, rishimonkey[3][(MAP_WIDTH//2, MAP_HEIGHT//2)])
     nx.draw_networkx_nodes(G, pos, node_size=20, node_color='r', edgecolors='k')
     nx.draw_networkx_edges(G, pos, edgelist=G.edges(), style='solid', edge_color='#808080')
     plt.draw()
@@ -282,13 +314,10 @@ def visualize_results(G, partitions, soln):
               type=click.FloatRange(0, 1), default=0.001, show_default=True)
 @click.option("-e", "--new-edges", help="Set number of edges from new node to existing node in SF graph.",
               default=4, type=click.IntRange(1), show_default=True)
-@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=4,
+@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=8,
               type=click.IntRange(2), show_default=True)
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
-    rishicodefunky = createNewForest()
-    rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
-    G = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])[2]
-    #G = build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition)
+    G = rishimonkey[2]
 
     visualize_input_graph(G)
 
