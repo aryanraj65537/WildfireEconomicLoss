@@ -10,29 +10,69 @@ np.savetxt('map.txt', x)
 
 SC_WIDTH, SC_HEIGHT = 800,800
 INITIAL_TREE_DENSITY = 1
-MAP_WIDTH = 1000
-MAP_HEIGHT = 1000
-TILE_SIZE = 16
+MAP_WIDTH = 10
+MAP_HEIGHT = 10
+TILE_SIZE = 36
 
 trees = []
 fires = []
 costs = []
-listOfBurned = []
+setOfBurned = set()
 
 pygame.init()
 
 screen = pygame.display.set_mode((SC_WIDTH, SC_HEIGHT))
 
+#graphics
 TREELOW_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "low-biomass.png")).convert_alpha()
 TREEMED_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "med-biomass.png")).convert_alpha()
 TREEHIGH_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "high-biomass.png")).convert_alpha()
 FIRE_IMG = pygame.image.load(os.path.join("cellular_automata", "Graphics", "Fire-Small.png")).convert_alpha()
+BURNT = pygame.image.load(os.path.join("cellular_automata", "Graphics", "blackimgfinal.png")).convert_alpha()
+
 
 def createNewForest():
-    map = [[random.choice(["L", "M", "H", "F"]) if random.random()<= INITIAL_TREE_DENSITY else " "
+    map = [[random.choice(["L", "M", "H"]) if random.random()<= INITIAL_TREE_DENSITY else " "
             for x in range(MAP_WIDTH)]
             for y in range(MAP_HEIGHT)]
-    return map
+    map[2][2] = "F"
+    costList = [[1, 45, 78, 23, 11], [64, 89, 37, 5, 92], [14, 68, 31, 57, 9], [76, 20, 83, 50, 3], [96, 42, 74, 28, 60]]
+    mapCosts = costList
+    #mapCosts = [[random.randint(1,100)
+    #        for x in range(MAP_WIDTH)]
+    #        for y in range(MAP_HEIGHT)]
+
+    #1253   15178.941804707934  0.9599123001098633
+    
+    mapEl = [[831
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    #14424, 14869
+    mapTemp = [[14699
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    #1,156
+    mapBio = [[75
+            for x in range(MAP_WIDTH)]
+            
+            for y in range(MAP_HEIGHT)]
+    '''
+    mapCosts = [[random.randint(1,100)
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    mapEl = [[random.randint(1250,1300)
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    #14424, 14869
+    mapTemp = [[random.randint(15174,15208)
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    #1,156
+    mapBio = [[random.uniform(16,17)
+            for x in range(MAP_WIDTH)]
+            for y in range(MAP_HEIGHT)]
+    '''
+    return map, mapCosts, mapEl, mapTemp, mapBio
 
 def displayForest(forest):
     for x in range(MAP_WIDTH):
@@ -45,22 +85,31 @@ def displayForest(forest):
                 screen.blit(TREEMED_IMG, (x*TILE_SIZE, y*TILE_SIZE))
             elif forest[y][x] == "H":
                 screen.blit(TREEHIGH_IMG, (x*TILE_SIZE, y*TILE_SIZE))
+            elif forest[y][x] == "BURNT":
+                screen.blit(BURNT, (x*TILE_SIZE, y*TILE_SIZE))
 
 
-def main(SIM_LENGTH, input_for, cburns):
+def main(SIM_LENGTH, input_for, cburns, rawFor):
     pygame.init()
 
     break_out = False
-    forest = input_for
+
+    forest = [x[:] for x in rawFor]
+    forCost = input_for[1]
+    forEl = input_for[2]
+    forTemp = input_for[3]
+    forBio = input_for[4]
 
     treeOfBurned = nx.Graph()
-
+    #print(rawFor)
     for step in range(SIM_LENGTH):
+        '''
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 break_out = True
         if break_out:
             break      
+        '''
         tree_count = sum(row.count("T") for row in forest)
         tree_land_percentage = (tree_count/(MAP_HEIGHT*MAP_WIDTH))*100
         trees.append(tree_land_percentage)
@@ -74,10 +123,9 @@ def main(SIM_LENGTH, input_for, cburns):
         pygame.display.update()
 
         #Build next forest
-        forest[0][0] = "F"
         for loc in cburns:
-            forest[loc[0]][loc[1]] = " "
-        #time.sleep(4)
+            forest[loc[0]][loc[1]] = "BURNT"
+
         for x in range(MAP_WIDTH):
             for y in range(MAP_HEIGHT):
                 if next_forest[y][x] != "Empty":
@@ -87,9 +135,11 @@ def main(SIM_LENGTH, input_for, cburns):
                         for iy in range(-1,2):
                             if (x+ix)>=0 and (y+iy) >= 0:
                                 if (x+ix)<=(MAP_WIDTH-1) and (y+iy) <= (MAP_HEIGHT -1):
-                                    if forest[y+iy][x+ix] == "T" and (random.random()<= 1):
-                                        treeOfBurned.add_edge((y, x), (y+iy, x+ix))
-                                        listOfBurned.append((y+iy, x+ix))
+                                    tOF = (random.random() < 1)
+                                    if (forest[y+iy][x+ix] == "L" or forest[y+iy][x+ix] == "M" or forest[y+iy][x+ix] == "H") and (tOF):
+                                        if (y+iy, x+ix) not in setOfBurned:
+                                            treeOfBurned.add_edge((y, x), (y+iy, x+ix))
+                                        setOfBurned.add((y+iy, x+ix))
                                         next_forest[y+iy][x+ix] = "F"
                     #delete tree after fire
                     next_forest[y][x] = " "
@@ -103,26 +153,16 @@ def main(SIM_LENGTH, input_for, cburns):
             for y in range(len(forest[x])):
                 one_forest.append(forest[x][y])
         if "F" not in one_forest:
-            print("no more fire")
+            #print("no more fire")
             break
             
         time.sleep(0.5)
-    #print(listOfBurned)
-    
-    time.sleep(5)
+    time.sleep(3)
     pygame.quit()
-    return [listOfBurned, treeOfBurned]
 
+    #totalCost = 0
+    #for x in setOfBurned:
+        #totalCost += forCost[x[0]][x[1]]
+    #print(totalCost)
+    return [setOfBurned, treeOfBurned]
 
-def get_cost(lob, input_forest):
-    cost = 0
-    for x in lob:
-        cost+=1
-    return cost
-    
-
-if __name__ == '__main__':
-    try:
-        main(20, createNewForest(), [(2,1),(1,2), (0,2), (2,0), (2,2)])
-    except KeyboardInterrupt:
-        sys.exit()
