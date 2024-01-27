@@ -8,7 +8,7 @@ import networkx as nx
 x = np.arange(20).reshape((4,5))
 np.savetxt('map.txt', x)
 
-SC_WIDTH, SC_HEIGHT = 4000,4000
+SC_WIDTH, SC_HEIGHT = 800,800
 INITIAL_TREE_DENSITY = 1
 MAP_WIDTH = 1000
 MAP_HEIGHT = 1000
