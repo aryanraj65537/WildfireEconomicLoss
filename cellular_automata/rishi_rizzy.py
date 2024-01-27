@@ -1,7 +1,8 @@
-from simulator import main, createNewForest
+from simulator import main, createNewForest, MAP_HEIGHT, MAP_WIDTH
 import matplotlib.pyplot as plt
 import networkx as nx
 import random
+import itertools
 
 def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
     if not nx.is_tree(G):
@@ -36,9 +37,10 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter 
     return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
 
 rishicodefunky = createNewForest()
-output = main(20, rishicodefunky, [], rishicodefunky[0])
-print(output[0])
-pos = hierarchy_pos(output[1], (2, 2))
+rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
+print(rishisigma)
+output = main(60, rishicodefunky, rishisigma, rishicodefunky[0])
+pos = hierarchy_pos(output[1], (MAP_WIDTH//2, MAP_HEIGHT//2))
 nx.draw(output[1], pos=pos, with_labels=True, node_color='skyblue', node_size=500, edge_color='gray')
 plt.title('NetworkX Graph')
 plt.show()

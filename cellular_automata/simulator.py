@@ -8,11 +8,11 @@ import networkx as nx
 x = np.arange(20).reshape((4,5))
 np.savetxt('map.txt', x)
 
-SC_WIDTH, SC_HEIGHT = 800,800
+SC_WIDTH, SC_HEIGHT = 1200,1200
 INITIAL_TREE_DENSITY = 1
-MAP_WIDTH = 10
-MAP_HEIGHT = 10
-TILE_SIZE = 36
+MAP_WIDTH = 60
+MAP_HEIGHT = 60
+TILE_SIZE = 15
 
 trees = []
 fires = []
@@ -35,7 +35,7 @@ def createNewForest():
     map = [[random.choice(["L", "M", "H"]) if random.random()<= INITIAL_TREE_DENSITY else " "
             for x in range(MAP_WIDTH)]
             for y in range(MAP_HEIGHT)]
-    map[2][2] = "F"
+    map[MAP_WIDTH//2][MAP_HEIGHT//2] = "F"
     costList = [[1, 45, 78, 23, 11], [64, 89, 37, 5, 92], [14, 68, 31, 57, 9], [76, 20, 83, 50, 3], [96, 42, 74, 28, 60]]
     mapCosts = costList
     #mapCosts = [[random.randint(1,100)
@@ -135,7 +135,7 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
                         for iy in range(-1,2):
                             if (x+ix)>=0 and (y+iy) >= 0:
                                 if (x+ix)<=(MAP_WIDTH-1) and (y+iy) <= (MAP_HEIGHT -1):
-                                    tOF = (random.random() < 1)
+                                    tOF = (random.random() < .33)
                                     if (forest[y+iy][x+ix] == "L" or forest[y+iy][x+ix] == "M" or forest[y+iy][x+ix] == "H") and (tOF):
                                         if (y+iy, x+ix) not in setOfBurned:
                                             treeOfBurned.add_edge((y, x), (y+iy, x+ix))
