@@ -88,7 +88,6 @@ def displayForest(forest):
             elif forest[y][x] == "BURNT":
                 screen.blit(BURNT, (x*TILE_SIZE, y*TILE_SIZE))
 
-
 def main(SIM_LENGTH, input_for, cburns, rawFor):
     pygame.init()
 
@@ -100,7 +99,14 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
     forTemp = input_for[3]
     forBio = input_for[4]
 
+    renamings = dict()
+
+    renamings[(MAP_WIDTH//2, MAP_HEIGHT//2)] = 0
+
+    lastunusedrenaming = 1
+
     treeOfBurned = nx.Graph()
+    normalizedtree = nx.Graph()
     #print(rawFor)
     for step in range(SIM_LENGTH):
         '''
@@ -139,6 +145,9 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
                                     if (forest[y+iy][x+ix] == "L" or forest[y+iy][x+ix] == "M" or forest[y+iy][x+ix] == "H") and (tOF):
                                         if (y+iy, x+ix) not in setOfBurned:
                                             treeOfBurned.add_edge((y, x), (y+iy, x+ix))
+                                            normalizedtree.add_edge(renamings[(y, x)], lastunusedrenaming)
+                                            renamings[(y+iy, x+ix)] = lastunusedrenaming
+                                            lastunusedrenaming += 1
                                         setOfBurned.add((y+iy, x+ix))
                                         next_forest[y+iy][x+ix] = "F"
                     #delete tree after fire
@@ -164,5 +173,5 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
     #for x in setOfBurned:
         #totalCost += forCost[x[0]][x[1]]
     #print(totalCost)
-    return [setOfBurned, treeOfBurned]
+    return [setOfBurned, treeOfBurned, normalizedtree, renamings]
 

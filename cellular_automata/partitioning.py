@@ -287,7 +287,7 @@ def visualize_results(G, partitions, soln):
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     rishicodefunky = createNewForest()
     rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
-    G = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])[1]
+    G = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])[2]
     #G = build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition)
 
     visualize_input_graph(G)

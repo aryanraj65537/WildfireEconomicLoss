@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 import itertools
+from collections import deque
 
 def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
     if not nx.is_tree(G):
@@ -38,9 +39,12 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter 
 
 rishicodefunky = createNewForest()
 rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
-print(rishisigma)
 output = main(60, rishicodefunky, rishisigma, rishicodefunky[0])
 pos = hierarchy_pos(output[1], (MAP_WIDTH//2, MAP_HEIGHT//2))
 nx.draw(output[1], pos=pos, with_labels=True, node_color='skyblue', node_size=500, edge_color='gray')
+plt.title('NetworkX Graph')
+plt.show()
+pos = hierarchy_pos(output[2], output[3][(MAP_WIDTH//2, MAP_HEIGHT//2)])
+nx.draw(output[2], pos=pos, with_labels=True, node_color='skyblue', node_size=500, edge_color='gray')
 plt.title('NetworkX Graph')
 plt.show()
