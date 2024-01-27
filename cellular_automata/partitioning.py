@@ -25,7 +25,8 @@ import click
 import matplotlib
 from dimod import Binary, ConstrainedQuadraticModel, quicksum
 from dwave.system import LeapHybridCQMSampler
-from simulator import MAP_HEIGHT, MAP_WIDTH, main, createNewForest
+import simulator
+from simulator import MAP_HEIGHT, MAP_WIDTH, createNewForest
 
 try:
     import matplotlib.pyplot as plt
@@ -286,8 +287,8 @@ def visualize_results(G, partitions, soln):
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     rishicodefunky = createNewForest()
     rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
-    #G = main(60, rishicodefunky, rishisigma, rishicodefunky[0])[1]
-    G = build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition)
+    G = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])[1]
+    #G = build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition)
 
     visualize_input_graph(G)
 
@@ -295,7 +296,7 @@ def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
 
     # Initialize the CQM solver
     print("\nOptimizing on LeapHybridCQMSampler...")
-    sampler = LeapHybridCQMSampler()
+    sampler = LeapHybridCQMSampler(token='DEV-b80ff71a0ffa044bc0ca11d800f92727a84eaa8a')
     
     sample = run_cqm_and_collect_solutions(cqm, sampler)
     
