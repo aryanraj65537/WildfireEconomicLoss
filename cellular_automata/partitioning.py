@@ -36,9 +36,9 @@ except ImportError:
 
 rishicodefunky = createNewForest()
 rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
-rishimonkey = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])
+rishimonkey = simulator.main(60, rishicodefunky, [], rishicodefunky[0])
 root_node = rishimonkey[3][(MAP_WIDTH//2, MAP_HEIGHT//2)]
-
+print(rishimonkey[2])
 def build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     """Builds graph from user specified parameters or use defaults.
     
@@ -168,7 +168,7 @@ def build_cqm(G, k, root_node):
     # Constraint: Partitions have equal size
     print("\nAdding partition size constraint...")
     for p in partitions:
-        cqm.add_constraint(quicksum(v[i][p] for i in G.nodes) == G.number_of_nodes()/k, label=f'partition-size-{p}')
+        cqm.add_constraint(quicksum(v[i][p] for i in G.nodes) == G.number_of_nodes()/k, label=f'partition-size-{p}', weight=2)
 
     # Objective: minimize sum of weights of nodes in same partition as root + minimize edges between partitions
     print("\nAdding objective...")
@@ -181,10 +181,15 @@ def build_cqm(G, k, root_node):
                 same_partition_as_root.append(G.nodes[i]['weight'] * v[i][p] + G.nodes[j]['weight'] * v[j][p] - 2 * G.nodes[i]['weight'] * v[i][p] * v[j][p])
 
     # Combine objectives with a balancing factor alpha
-    alpha = 500.0  # Adjust alpha to balance the importance of objectives
-    print(min_edges)
-    print(same_partition_as_root)
-    cqm.set_objective(sum(min_edges) + alpha * sum(same_partition_as_root))
+    alpha = 500000.0  # Adjust alpha to balance the importance of objectives
+    #print(min_edges)
+    #print(same_partition_as_root)
+    cqm.set_objective(sum(min_edges) - alpha * sum(same_partition_as_root))
+    #print("Objective function components:")
+    #print(f"Min edges component (sum): {sum(min_edges)}")
+    #print(f"Same partition as root component (sum): {alpha * sum(same_partition_as_root)}")
+    #print(f"Total Objective (sum): {sum(min_edges) + alpha * sum(same_partition_as_root)}")
+ 
 
     return cqm
 
@@ -203,7 +208,7 @@ def run_cqm_and_collect_solutions(cqm, sampler):
     print("\nSending to the solver...")
     
     # Solve the CQM problem using the solver
-    sampleset = sampler.sample_cqm(cqm, label='Example - Graph Partitioning')
+    sampleset = sampler.sample_cqm(cqm, label='Example - Graph Partitioning', time_limit = 10)
 
     feasible_sampleset = sampleset.filter(lambda row: row.is_feasible)
 
@@ -268,12 +273,13 @@ def process_sample(sample, G, k, verbose=True):
 
     return soln, partitions
 
-def visualize_results(G, partitions, soln):
+def visualize_results(G, partitions, soln, root_node):
     """Visualize the partition.
     Args:
         G (graph): Original input graph
         partitions (dict): Each item is partition: [nodes in partition]
         soln (list): List of partitions, indexed by node
+        root_node (int): Node chosen as the root
     
     Returns:
         None. Output is saved as output_graph.png.
@@ -302,7 +308,11 @@ def visualize_results(G, partitions, soln):
     pos = {}
     for node in G.nodes():
         pos[node] = pos_full[node] + pos_g[node]
-    nx.draw_networkx_nodes(G, pos, node_size=40, node_color=soln, edgecolors='k')
+
+    # Specify color for the root node
+    node_colors = [15 if node == root_node else soln[node] for node in G.nodes()]
+
+    nx.draw_networkx_nodes(G, pos, node_size=40, node_color=node_colors, edgecolors='k')
 
     # Draw good and bad edges in different colors
     bad_edges = [(u, v) for u, v in G.edges if soln[u] != soln[v]]
@@ -357,10 +367,11 @@ def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     
     if sample is not None:
         soln, partitions = process_sample(sample, G, k_partition)
+        print(soln)
 
-        visualize_results(G, partitions, soln)
+        visualize_results(G, partitions, soln, root_node)
 
 
-if __name__ == '__main__':
+if __name__ ==   '__main__':
     # pylint: disable=no-value-for-parameter
     main()
