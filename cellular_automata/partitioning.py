@@ -39,6 +39,24 @@ rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in ra
 rishimonkey = simulator.main(60, rishicodefunky, [], rishicodefunky[0])
 root_node = rishimonkey[3][(MAP_WIDTH//2, MAP_HEIGHT//2)]
 print(rishimonkey[2])
+
+def compute_distances_from_root(G, root_node):
+    """Compute the shortest path lengths from root_node to all other nodes in the graph."""
+    return nx.shortest_path_length(G, source=root_node)
+
+def assign_edge_weights_based_on_node_weights(G, node_weights, root_distances):
+    """Assign weights to edges based on the node weights and their distances from the root."""
+    for edge in G.edges():
+        node_a, node_b = edge
+
+        # Determine which node is closer to the root
+        if root_distances[node_a] < root_distances[node_b]:
+            # Node A is closer to the root, set edge weight to the weight of node B
+            G[node_a][node_b]['weight'] = node_weights[node_b]
+        else:
+            # Node B is closer or they are at the same distance, set edge weight to the weight of node A
+            G[node_a][node_b]['weight'] = node_weights[node_a]
+
 def build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     """Builds graph from user specified parameters or use defaults.
     
@@ -184,12 +202,44 @@ def build_cqm(G, k, root_node):
     alpha = 500000.0  # Adjust alpha to balance the importance of objectives
     #print(min_edges)
     #print(same_partition_as_root)
-    cqm.set_objective(sum(min_edges) - alpha * sum(same_partition_as_root))
+    cqm.set_objective(sum(min_edges) - (alpha * sum(same_partition_as_root)))
     #print("Objective function components:")
     #print(f"Min edges component (sum): {sum(min_edges)}")
     #print(f"Same partition as root component (sum): {alpha * sum(same_partition_as_root)}")
     #print(f"Total Objective (sum): {sum(min_edges) + alpha * sum(same_partition_as_root)}")
  
+    # Initialize objective components
+    min_interpartition_edges = []
+    min_intrapartition_edges_root = []
+
+    root_partition = -1  # Variable to keep track of the partition of the root node
+
+    for i, j in G.edges:
+        for p in partitions:
+            is_i_in_p = v[i][p]
+            is_j_in_p = v[j][p]
+            edge_weight = G[i][j]['weight']
+            
+            # Objective 1: Minimize interpartition edge weights
+            # Add edge weight if i and j are in different partitions
+            min_interpartition_edges.append(edge_weight * (is_i_in_p + is_j_in_p - 2 * is_i_in_p * is_j_in_p))
+
+            # Check if either i or j is the root node and if so, note the partition
+            if i == root_node or j == root_node:
+                root_partition = p
+            
+            # Objective 2: Minimize intrapartition edge weights for partition with the root node
+            # Add edge weight if both i and j are in the same partition as the root
+            if root_partition != -1:
+                min_intrapartition_edges_root.append(edge_weight * is_i_in_p * is_j_in_p)
+
+    # Combine objectives with balancing factors
+    alpha1 = 1.0  # Adjust as needed to balance the importance of objectives
+    alpha2 = 1.0  # Adjust as needed to balance the importance of objectives
+    
+    total_objective = alpha1 * quicksum(min_interpartition_edges) + alpha2 * quicksum(min_intrapartition_edges_root)
+    
+    cqm.set_objective(total_objective)
 
     return cqm
 
@@ -354,6 +404,10 @@ def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     nx.set_node_attributes(G, node_weights, 'weight')
 
     # Select a root node randomly
+
+    # Inside your main function or wherever appropriate
+    root_distances = compute_distances_from_root(G, root_node)
+    assign_edge_weights_based_on_node_weights(G, node_weights, root_distances)
 
     visualize_input_graph(G)
 
