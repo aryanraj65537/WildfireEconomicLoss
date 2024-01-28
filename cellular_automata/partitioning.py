@@ -37,6 +37,7 @@ except ImportError:
 rishicodefunky = createNewForest()
 rishisigma = list(itertools.islice({(i, j) for i in range(MAP_WIDTH) for j in range(MAP_HEIGHT)}, 120))
 rishimonkey = simulator.main(60, rishicodefunky, rishisigma, rishicodefunky[0])
+root_node = rishimonkey[3][(MAP_WIDTH//2, MAP_HEIGHT//2)]
 
 def build_graph(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     """Builds graph from user specified parameters or use defaults.
@@ -137,11 +138,12 @@ def visualize_input_graph(G):
     plt.close()
 
 
-def build_cqm(G, k):
+def build_cqm(G, k, root_node):
     """Build the CQM.
     Args:
         G (Graph): Input graph to be partitioned
         k (int): Number of partitions to be used
+        root_node (int): Node chosen as the root
     
     Returns:
         cqm (ConstrainedQuadraticModel): The CQM for our problem
@@ -161,22 +163,28 @@ def build_cqm(G, k):
     # One-hot constraint: each node is assigned to exactly one partition
     print("\nAdding one-hot constraints...")
     for i in G.nodes:
-        # print("\nAdding one-hot for node", i)
         cqm.add_discrete([f'v_{i},{p}' for p in partitions], label=f"one-hot-node-{i}")
 
     # Constraint: Partitions have equal size
     print("\nAdding partition size constraint...")
     for p in partitions:
-        # print("\nAdding partition size constraint for partition", p)
         cqm.add_constraint(quicksum(v[i][p] for i in G.nodes) == G.number_of_nodes()/k, label=f'partition-size-{p}')
 
-    # Objective: minimize edges between partitions
+    # Objective: minimize sum of weights of nodes in same partition as root + minimize edges between partitions
     print("\nAdding objective...")
     min_edges = []
-    for i,j in G.edges:
+    same_partition_as_root = []
+    for i, j in G.edges:
         for p in partitions:
-            min_edges.append(v[i][p]+v[j][p]-2*v[i][p]*v[j][p])
-    cqm.set_objective(sum(min_edges))
+            min_edges.append(v[i][p] + v[j][p] - 2 * v[i][p] * v[j][p])
+            if i == root_node or j == root_node:
+                same_partition_as_root.append(G.nodes[i]['weight'] * v[i][p] + G.nodes[j]['weight'] * v[j][p] - 2 * G.nodes[i]['weight'] * v[i][p] * v[j][p])
+
+    # Combine objectives with a balancing factor alpha
+    alpha = 500.0  # Adjust alpha to balance the importance of objectives
+    print(min_edges)
+    print(same_partition_as_root)
+    cqm.set_objective(sum(min_edges) + alpha * sum(same_partition_as_root))
 
     return cqm
 
@@ -202,7 +210,7 @@ def run_cqm_and_collect_solutions(cqm, sampler):
     # Return the first feasible solution
     if not len(feasible_sampleset):
         print("\nNo feasible solution found.\n")
-        return None
+        return sampleset.first.sample
 
     return feasible_sampleset.first.sample
 
@@ -222,12 +230,19 @@ def process_sample(sample, G, k, verbose=True):
 
     partitions = defaultdict(list)
     soln = [-1]*G.number_of_nodes()
+    partition_costs = defaultdict(float)
+    root_partition_cost = 0.0
+    root_partition_index = -1
 
     for node in G.nodes:
         for p in range(k):
             if sample[f'v_{node},{p}'] == 1:
                 partitions[p].append(node)
                 soln[node] = p
+                # Summing the weights of nodes in each partition
+                partition_costs[p] += G.nodes[node]['weight']
+                if node == root_node:
+                    root_partition_index = p
 
     # Count the nodes in each partition
     counts = np.zeros(k)
@@ -244,9 +259,14 @@ def process_sample(sample, G, k, verbose=True):
         print("Counts in each partition: ", counts)
         print("Number of links between partitions: ", sum_diff)
         print("Number of links within partitions:", len(G.edges)-sum_diff)
+        print("Costs of each partition:")
+        for p, cost in partition_costs.items():
+            print(f" Partition {p}: Cost = {cost}")
+        if root_partition_index != -1:
+            root_partition_cost = partition_costs[root_partition_index]
+            print(f"Cost of the partition containing the root (Partition {root_partition_index}): {root_partition_cost}")
 
     return soln, partitions
-
 
 def visualize_results(G, partitions, soln):
     """Visualize the partition.
@@ -314,14 +334,20 @@ def visualize_results(G, partitions, soln):
               type=click.FloatRange(0, 1), default=0.001, show_default=True)
 @click.option("-e", "--new-edges", help="Set number of edges from new node to existing node in SF graph.",
               default=4, type=click.IntRange(1), show_default=True)
-@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=8,
+@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=4,
               type=click.IntRange(2), show_default=True)
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     G = rishimonkey[2]
+    
+    # Randomly assign weights to each node
+    node_weights = {node: random() for node in G.nodes}
+    nx.set_node_attributes(G, node_weights, 'weight')
+
+    # Select a root node randomly
 
     visualize_input_graph(G)
 
-    cqm = build_cqm(G, k_partition)
+    cqm = build_cqm(G, k_partition, root_node)
 
     # Initialize the CQM solver
     print("\nOptimizing on LeapHybridCQMSampler...")
