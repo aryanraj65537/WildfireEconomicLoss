@@ -202,7 +202,7 @@ def build_cqm(G, k, root_node):
     alpha = 500000.0  # Adjust alpha to balance the importance of objectives
     #print(min_edges)
     #print(same_partition_as_root)
-    cqm.set_objective(sum(min_edges) - (alpha * sum(same_partition_as_root)))
+    cqm.set_objective(sum(min_edges))
     #print("Objective function components:")
     #print(f"Min edges component (sum): {sum(min_edges)}")
     #print(f"Same partition as root component (sum): {alpha * sum(same_partition_as_root)}")
@@ -234,8 +234,8 @@ def build_cqm(G, k, root_node):
                 min_intrapartition_edges_root.append(edge_weight * is_i_in_p * is_j_in_p)
 
     # Combine objectives with balancing factors
-    alpha1 = 1.0  # Adjust as needed to balance the importance of objectives
-    alpha2 = 1.0  # Adjust as needed to balance the importance of objectives
+    alpha1 = 500.0  # Adjust as needed to balance the importance of objectives
+    alpha2 = 500.0  # Adjust as needed to balance the importance of objectives
     
     total_objective = alpha1 * quicksum(min_interpartition_edges) + alpha2 * quicksum(min_intrapartition_edges_root)
     
@@ -271,55 +271,35 @@ def run_cqm_and_collect_solutions(cqm, sampler):
 
 
 def process_sample(sample, G, k, verbose=True):
-    """Interpret the sample found in terms of our graph.
-    Args:
-        sample (dict): Sample to be used
-        G (graph): Original input graph
-        k (int): Number of partitions
-        verbose (bool): Trigger to print output to command-line
-    
-    Returns:
-        soln (list): List of partitions, indexed by node
-        partitions (dict): Each item is partition: [nodes in partition]
-    """
-
     partitions = defaultdict(list)
-    soln = [-1]*G.number_of_nodes()
+    soln = [-1] * G.number_of_nodes()
     partition_costs = defaultdict(float)
     root_partition_cost = 0.0
     root_partition_index = -1
+    interpartition_edge_cost = 0.0
+    intrapartition_edge_costs = defaultdict(float)
 
     for node in G.nodes:
         for p in range(k):
             if sample[f'v_{node},{p}'] == 1:
                 partitions[p].append(node)
                 soln[node] = p
-                # Summing the weights of nodes in each partition
                 partition_costs[p] += G.nodes[node]['weight']
                 if node == root_node:
                     root_partition_index = p
 
-    # Count the nodes in each partition
-    counts = np.zeros(k)
-    for p in partitions:
-        counts[p] += len(partitions[p])
-
-    # Compute the number of links between different partitions
-    sum_diff = 0
     for i, j in G.edges:
-        if soln[i] != soln[j]:
-            sum_diff += 1
+        if soln[i] != soln[j]:  # Edge is between partitions
+            interpartition_edge_cost += G[i][j]['weight']
+        else:  # Edge is within the same partition
+            intrapartition_edge_costs[soln[i]] += G[i][j]['weight']
 
     if verbose:
-        print("Counts in each partition: ", counts)
-        print("Number of links between partitions: ", sum_diff)
-        print("Number of links within partitions:", len(G.edges)-sum_diff)
-        print("Costs of each partition:")
-        for p, cost in partition_costs.items():
-            print(f" Partition {p}: Cost = {cost}")
+        print(f"Interpartition Edge Cost: {interpartition_edge_cost}")
+        for partition, cost in intrapartition_edge_costs.items():
+            print(f"Intrapartition Edge Cost for Partition {partition}: {cost}")
         if root_partition_index != -1:
-            root_partition_cost = partition_costs[root_partition_index]
-            print(f"Cost of the partition containing the root (Partition {root_partition_index}): {root_partition_cost}")
+            print(f"Intrapartition Edge Cost for Root Partition ({root_partition_index}): {intrapartition_edge_costs[root_partition_index]}")
 
     return soln, partitions
 
@@ -394,7 +374,7 @@ def visualize_results(G, partitions, soln, root_node):
               type=click.FloatRange(0, 1), default=0.001, show_default=True)
 @click.option("-e", "--new-edges", help="Set number of edges from new node to existing node in SF graph.",
               default=4, type=click.IntRange(1), show_default=True)
-@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=4,
+@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=8,
               type=click.IntRange(2), show_default=True)
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     G = rishimonkey[2]

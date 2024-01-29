@@ -10,8 +10,8 @@ np.savetxt('map.txt', x)
 
 SC_WIDTH, SC_HEIGHT = 1200,1200
 INITIAL_TREE_DENSITY = 1
-MAP_WIDTH = 10
-MAP_HEIGHT = 10
+MAP_WIDTH = 50
+MAP_HEIGHT = 50
 TILE_SIZE = 15
 
 trees = []
