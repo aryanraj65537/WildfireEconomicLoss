@@ -124,9 +124,9 @@ def main(SIM_LENGTH, input_for, cburns, rawFor):
         fires.append(fire_land_percentage)
 
         next_forest = [["Empty" for x in range(MAP_WIDTH)] for y in range(MAP_HEIGHT)]
-        screen.fill((137,234,123))
-        displayForest(forest)
-        pygame.display.update()
+        #screen.fill((137,234,123))
+        #displayForest(forest)
+        #pygame.display.update()
 
         #Build next forest
         for loc in cburns:

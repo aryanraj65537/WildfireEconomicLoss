@@ -198,11 +198,33 @@ def build_cqm(G, k, root_node):
             if i == root_node or j == root_node:
                 same_partition_as_root.append(G.nodes[i]['weight'] * v[i][p] + G.nodes[j]['weight'] * v[j][p] - 2 * G.nodes[i]['weight'] * v[i][p] * v[j][p])
 
+        
+    # Define a large penalty value to discourage constraint violations
+    penalty_value = 10000  # This value should be large enough to make violating the constraint undesirable
+
+    # Initialize a penalty term
+    penalty_terms = []
+
+    for i, j in G.edges:
+        for p in partitions:
+            # For each edge and partition, calculate a term that penalizes violating the contiguity constraint
+            # Note: This is a conceptual representation. Actual implementation might need adjustments.
+            penalty_term = penalty_value * (v[i][p] + v[j][p] - 2 * v[i][p] * v[j][p])
+            penalty_terms.append(penalty_term)
+
+
+        
+    min_edges2 = []
+    for i, j in G.edges:
+        for p in partitions:
+            # Since it's a tree, simply counting edges between partitions
+            min_edges2.append(v[i][p] * (1 - v[j][p]) + v[j][p] * (1 - v[i][p]))
+
     # Combine objectives with a balancing factor alpha
     alpha = 500000.0  # Adjust alpha to balance the importance of objectives
     #print(min_edges)
     #print(same_partition_as_root)
-    cqm.set_objective(sum(min_edges))
+    #cqm.set_objective(sum(min_edges))
     #print("Objective function components:")
     #print(f"Min edges component (sum): {sum(min_edges)}")
     #print(f"Same partition as root component (sum): {alpha * sum(same_partition_as_root)}")
@@ -237,9 +259,13 @@ def build_cqm(G, k, root_node):
     alpha1 = 500.0  # Adjust as needed to balance the importance of objectives
     alpha2 = 500.0  # Adjust as needed to balance the importance of objectives
     
-    total_objective = alpha1 * quicksum(min_interpartition_edges) + alpha2 * quicksum(min_intrapartition_edges_root)
+    total_objective = quicksum(min_edges2)+alpha1 * quicksum(min_interpartition_edges) + alpha2 * quicksum(min_intrapartition_edges_root)
     
-    cqm.set_objective(total_objective)
+    # Adjust your total objective to include the penalty terms
+    total_objective_with_penalty = total_objective + quicksum(penalty_terms)
+
+    # Set the objective with penalties
+    cqm.set_objective(total_objective_with_penalty)
 
     return cqm
 
@@ -339,8 +365,42 @@ def visualize_results(G, partitions, soln, root_node):
     for node in G.nodes():
         pos[node] = pos_full[node] + pos_g[node]
 
+    def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
+        if not nx.is_tree(G):
+            raise TypeError('cannot use hierarchy_pos on a graph that is not a tree')
+
+        if root is None:
+            if isinstance(G, nx.DiGraph):
+                root = next(iter(nx.topological_sort(G)))  #allows back compatibility with nx version 1.11
+            else:
+                root = random.choice(list(G.nodes))
+
+        def _hierarchy_pos(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
+
+            if pos is None:
+                pos = {root:(xcenter,vert_loc)}
+            else:
+                pos[root] = (xcenter, vert_loc)
+            children = list(G.neighbors(root))
+            if not isinstance(G, nx.DiGraph) and parent is not None:
+                children.remove(parent)  
+            if len(children)!=0:
+                dx = width/len(children) 
+                nextx = xcenter - width/2 - dx/2
+                for child in children:
+                    nextx += dx
+                    pos = _hierarchy_pos(G,child, width = dx, vert_gap = vert_gap, 
+                                        vert_loc = vert_loc-vert_gap, xcenter=nextx,
+                                        pos=pos, parent = root)
+            return pos
+
+                
+        return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
+
+    pos = hierarchy_pos(G, root_node)
+    
     # Specify color for the root node
-    node_colors = [15 if node == root_node else soln[node] for node in G.nodes()]
+    node_colors = [soln[node] for node in G.nodes()]
 
     nx.draw_networkx_nodes(G, pos, node_size=40, node_color=node_colors, edgecolors='k')
 
@@ -351,12 +411,9 @@ def visualize_results(G, partitions, soln, root_node):
     nx.draw_networkx_edges(G, pos, edgelist=good_edges, style='solid', edge_color='#7f7f7f')
     nx.draw_networkx_edges(G, pos, edgelist=bad_edges, style='solid', edge_color='k')
 
-    # Save the output image
+    # ChatGPT change this part so that it opens the output graph in new window instead of saving to png
     plt.draw()
-    output_name = 'output_graph.png'
-    plt.savefig(output_name)
-
-    print("\tOutput stored in", output_name)
+    plt.show()
 
 
 @click.command(context_settings=dict(help_option_names=['-h', '--help']))
@@ -374,7 +431,7 @@ def visualize_results(G, partitions, soln, root_node):
               type=click.FloatRange(0, 1), default=0.001, show_default=True)
 @click.option("-e", "--new-edges", help="Set number of edges from new node to existing node in SF graph.",
               default=4, type=click.IntRange(1), show_default=True)
-@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=8,
+@click.option("-k", "--k-partition", help="Set number of partitions to divide graph into.", default=2,
               type=click.IntRange(2), show_default=True)
 def main(graph, nodes, degree, prob, p_in, p_out, new_edges, k_partition):
     G = rishimonkey[2]
